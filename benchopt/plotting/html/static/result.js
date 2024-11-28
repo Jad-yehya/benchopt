@@ -483,8 +483,7 @@ const exportHTML = () => {
 
 const exportPDF = () => {
   const plot = document.getElementById('unique_plot');
-  
-  // export the plot as svg using plotly
+
   Plotly.downloadImage(plot,
      {format: 'svg', 
       // filename is the name of the solver used
@@ -1043,21 +1042,6 @@ const handleSolverDoubleClick = solver => {
   }
 
   hideAllSolversExcept(solver);
-};
-
-const addExportButtons = () => {
-    const exportGroup = document.querySelector('.export-buttons-group');
-    if (!exportGroup) return;
-
-    // Add PDF export button if not already present 
-    if (!document.getElementById('export-pdf-button')) {
-        const pdfButton = document.createElement('button');
-        pdfButton.id = 'export-pdf-button';
-        pdfButton.className = 'export-button'; // Match existing button styles
-        pdfButton.innerHTML = 'Export PDF';
-        pdfButton.onclick = exportPDF;
-        exportGroup.appendChild(pdfButton);
-    }
 };
 
 /*
