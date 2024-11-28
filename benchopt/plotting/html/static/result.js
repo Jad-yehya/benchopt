@@ -482,44 +482,17 @@ const exportHTML = () => {
 };
 
 const exportPDF = () => {
-    const div = document.getElementById('unique_plot');
-    
-    // Use Plotly's toImage to get high quality SVG
-    Plotly.toImage(div, {
-        format: 'svg',
-        width: 1200,
-        height: 800,
-        scale: 2  // Increase resolution
-    }).then(function(dataUrl) {
-        // Convert SVG to PDF using svg2pdf
-        const canvas = document.createElement('canvas');
-        const svg = new Image();
-        svg.onload = function() {
-            canvas.width = svg.width;
-            canvas.height = svg.height;
-            
-            // Create PDF
-            const pdf = new jsPDF({
-                orientation: 'landscape',
-                unit: 'px',
-                format: [svg.width, svg.height]
-            });
-            
-            // Add the plot
-            pdf.addImage(dataUrl, 'SVG', 0, 0, svg.width, svg.height);
-            
-            // Add title
-            const title = `${state().objective} - Data: ${state().dataset}`;
-            pdf.setFontSize(14);
-            pdf.text(title, 40, 30);
-            
-            // Save the PDF
-            pdf.save('benchopt_plot.pdf');
-        };
-        svg.src = dataUrl;
+  const plot = document.getElementById('unique_plot');
+  
+  // export the plot as svg using plotly
+  Plotly.downloadImage(plot,
+     {format: 'svg', 
+      // filename is the name of the solver used
+      filename: state().objective + '_' + state().dataset + '_' + state().objective_column + '_' + state().plot_kind ,
+    },
+    {height: plot.layout.height,
+      width: plot.layout.width
     });
-    
-    return false;
 };
 
 /*
