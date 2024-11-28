@@ -84,7 +84,7 @@ const renderPlot = () => {
   const layout = getLayout();
 
   Plotly.react(div, data, layout);
-  addExportButtons();
+  // addExportButtons();
 };
 
 /**
