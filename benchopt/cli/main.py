@@ -7,6 +7,8 @@ from benchopt.benchmark import Benchmark
 from benchopt.config import get_setting
 from benchopt.cli.completion import complete_solvers
 from benchopt.cli.completion import complete_datasets
+from benchopt.cli.completion import complete_solver_tags
+from benchopt.cli.completion import complete_dataset_tags
 from benchopt.cli.completion import complete_benchmarks
 from benchopt.cli.completion import complete_conda_envs
 from benchopt.cli.completion import complete_config_files
@@ -39,8 +41,9 @@ def _get_run_args(cli_kwargs, config_file_kwargs):
                 "See list of valid options with `benchopt run -h`.")
 
         # parse if value is on a single line
-        if (not isinstance(v, list) and
-                var_name in ["objective", "dataset", "solver"]):
+        if (not isinstance(v, list) and var_name in [
+                "objective", "dataset", "solver", "solver_tag",
+                "dataset_tag"]):
             v = [v]
 
         # only override CLI variables if they have their default value
@@ -53,6 +56,8 @@ def _get_run_args(cli_kwargs, config_file_kwargs):
         "solver",
         "force_solver",
         "dataset",
+        "solver_tag",
+        "dataset_tag",
         "objective",
         "max_runs",
         "n_repetitions",
@@ -109,6 +114,16 @@ def _get_run_args(cli_kwargs, config_file_kwargs):
               " with the syntax `dataset[parameter=value]`. "
               "To include multiple datasets, use multiple `-d` options.",
               shell_complete=complete_datasets)
+@click.option('--solver-tag', '-st',
+              metavar="<tag>", multiple=True, type=str,
+              help="Only include solvers with <tag>. Repeat this option to "
+              "match any listed solver tag.",
+              shell_complete=complete_solver_tags)
+@click.option('--dataset-tag', '-dt',
+              metavar="<tag>", multiple=True, type=str,
+              help="Only include datasets with <tag>. Repeat this option to "
+              "match any listed dataset tag.",
+              shell_complete=complete_dataset_tags)
 @click.option("--max-runs", "-n",
               metavar="<int>", default=100, show_default=True, type=int,
               help='Maximal number of runs for each solver. This corresponds '
@@ -206,7 +221,8 @@ def run(config_file=None, **kwargs):
 
     (
         benchmark, solver_names, forced_solvers, dataset_names,
-        objective_filters, max_runs, n_repetitions, timeout, no_timeout,
+        solver_tags, dataset_tags, objective_filters, max_runs,
+        n_repetitions, timeout, no_timeout,
         collect, plot, display, html, n_jobs, parallel_config, pdb,
         do_profile, env_name, no_cache, output, seed
     ) = _get_run_args(kwargs, config)
@@ -287,7 +303,9 @@ def run(config_file=None, **kwargs):
         objective.is_installed(raise_on_not_installed=True)
 
         # Check that the dataset/solver patterns match actual dataset
-        datasets = benchmark.check_dataset_patterns(dataset_names)
+        datasets = benchmark.check_dataset_patterns(
+            dataset_names, tags=dataset_tags
+        )
         objectives = benchmark.check_objective_filters(objective_filters)
         print(" done.")
 
@@ -297,7 +315,7 @@ def run(config_file=None, **kwargs):
         elif isinstance(solver_names, tuple):
             solver_names = list(solver_names)
         solvers = benchmark.check_solver_patterns(
-            solver_names + list(forced_solvers)
+            solver_names + list(forced_solvers), tags=solver_tags
         )
         exit_code, _ = _run_benchmark(
             benchmark, solvers, forced_solvers,
@@ -366,6 +384,12 @@ def run(config_file=None, **kwargs):
     solvers_option = " ".join([f'-s "{s}"' for s in solver_names])
     forced_solvers_option = " ".join([f'-f "{s}"' for s in forced_solvers])
     datasets_option = " ".join([f'-d "{d}"' for d in dataset_names])
+    solver_tags_option = " ".join([
+        f'--solver-tag "{tag}"' for tag in solver_tags
+    ])
+    dataset_tags_option = " ".join([
+        f'--dataset-tag "{tag}"' for tag in dataset_tags
+    ])
     objective_option = " ".join([f'-o "{o}"' for o in objective_filters])
     parallel_args = ""
     if n_jobs:
@@ -379,7 +403,8 @@ def run(config_file=None, **kwargs):
         rf"{f'--timeout {timeout} ' if timeout is not None else ''}"
         rf"{'--no-timeout ' if no_timeout else ''} "
         rf"{solvers_option} {forced_solvers_option} "
-        rf"{datasets_option} {objective_option} "
+        rf"{datasets_option} {solver_tags_option} "
+        rf"{dataset_tags_option} {objective_option} "
         rf"{'--plot' if plot else '--no-plot'} "
         rf"{'--display' if display else '--no-display'} "
         rf"{'--html' if html else '--no-html'} "
