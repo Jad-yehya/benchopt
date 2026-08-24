@@ -85,9 +85,7 @@ def _filter_classes_by_tags(all_classes, tags, name_type):
         return set(all_classes)
 
     class_tags = {cls: _get_class_tags(cls) for cls in all_classes}
-    available_tags = {
-        tag for cls_tags in class_tags.values() for tag in cls_tags
-    }
+    available_tags = set().union(*class_tags.values())
     invalid_tags = [tag for tag in tags if tag not in available_tags]
     if invalid_tags:
         available = '- ' + '\n- '.join(sorted(available_tags))
