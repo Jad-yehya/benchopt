@@ -185,13 +185,13 @@ class TestRunCmd:
         out.check_output("DATA#large-data")
         out.check_output("DATA#private-data", repetition=0)
 
-    def test_repeated_tag_filters_use_or(self):
+    def test_multiple_tag_filters_use_or(self):
         solvers, datasets = _tagged_components()
         with temp_benchmark(solvers=solvers, datasets=datasets) as bench, \
                 CaptureCmdOutput() as out:
             run([
-                str(bench.benchmark_dir), "--solver-tag", "cpu",
-                "--solver-tag", "gpu", "--dataset-tag", "small",
+                str(bench.benchmark_dir), "--solver-tag", "cpu, gpu",
+                "--dataset-tag", "small", "--dataset-tag", "large",
                 "-n", "1", "-r", "1", "--no-plot"
             ], "benchopt", standalone_mode=False)
 
@@ -199,8 +199,8 @@ class TestRunCmd:
         out.check_output("RUN#gpu-solver")
         out.check_output("RUN#hard-solver")
         out.check_output("DATA#small-data")
-        out.check_output("DATA#large-data", repetition=0)
-        out.check_output("DATA#private-data", repetition=0)
+        out.check_output("DATA#large-data")
+        out.check_output("DATA#private-data")
 
     def test_invalid_tag(self):
         with temp_benchmark() as bench:
@@ -541,7 +541,9 @@ class TestRunCmd:
         with temp_benchmark(solvers=solvers, datasets=datasets) as bench:
             benchmark = str(bench.benchmark_dir)
             _test_shell_completion(
-                run, [benchmark, "-st"], [("g", ["gpu"])]
+                run, [benchmark, "-st"], [
+                    ("g", ["gpu"]), ("easy,g", ["easy,gpu"])
+                ]
             )
             _test_shell_completion(
                 run, [benchmark, "-dt"], [("l", ["large"])]
@@ -638,7 +640,7 @@ class TestRunCmdConfig:
 
     def test_tag_filters_from_config(self):
         config = """
-        solver-tag: gpu
+        solver-tag: gpu, hard
         dataset-tag: large
         n-repetitions: 1
         max-runs: 1

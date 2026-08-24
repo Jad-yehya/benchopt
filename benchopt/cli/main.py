@@ -51,6 +51,12 @@ def _get_run_args(cli_kwargs, config_file_kwargs):
                 ctx.get_parameter_source(var_name).name == 'DEFAULT'):
             cli_kwargs[var_name] = v
 
+    for name in ["solver_tag", "dataset_tag"]:
+        cli_kwargs[name] = [
+            tag.strip()
+            for tags in cli_kwargs[name] for tag in tags.split(',')
+        ]
+
     return_names = [
         "benchmark",
         "solver",
@@ -116,13 +122,13 @@ def _get_run_args(cli_kwargs, config_file_kwargs):
               shell_complete=complete_datasets)
 @click.option('--solver-tag', '-st',
               metavar="<tag>", multiple=True, type=str,
-              help="Only include solvers with <tag>. Repeat this option to "
-              "match any listed solver tag.",
+              help="Only include solvers with <tag>. Separate tags with "
+              "commas or repeat this option to match any listed tag.",
               shell_complete=complete_solver_tags)
 @click.option('--dataset-tag', '-dt',
               metavar="<tag>", multiple=True, type=str,
-              help="Only include datasets with <tag>. Repeat this option to "
-              "match any listed dataset tag.",
+              help="Only include datasets with <tag>. Separate tags with "
+              "commas or repeat this option to match any listed tag.",
               shell_complete=complete_dataset_tags)
 @click.option("--max-runs", "-n",
               metavar="<int>", default=100, show_default=True, type=int,

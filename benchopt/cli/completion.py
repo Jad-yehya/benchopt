@@ -86,7 +86,9 @@ def _complete_tags(ctx, incomplete, component):
     if benchmark is None:
         return []
     classes = getattr(benchmark, f"get_{component}s")()
-    return propose_from_list(sorted(_get_tags(classes)), incomplete)
+    prefix, separator, incomplete = incomplete.rpartition(',')
+    proposals = propose_from_list(sorted(_get_tags(classes)), incomplete)
+    return [f"{prefix}{separator}{tag}" for tag in proposals]
 
 
 def complete_solver_tags(ctx, param, incomplete):

@@ -91,7 +91,9 @@ def test_invalid_component_tag(component):
             check_patterns([], tags=["missing"])
 
 
-@pytest.mark.parametrize("tags", ["None", "('easy',)", "['easy', 1]"])
+@pytest.mark.parametrize(
+    "tags", ["None", "('easy',)", "['easy', 1]", "['easy,gpu']"]
+)
 def test_invalid_component_tags(tags):
     solver = f"""from benchopt import BaseSolver
     class Solver(BaseSolver):

@@ -67,10 +67,10 @@ def _get_class_tags(cls):
         ) from exc
 
     if not isinstance(tags, list) or not all(
-            isinstance(tag, str) for tag in tags):
+            isinstance(tag, str) and ',' not in tag for tag in tags):
         raise ValueError(
             f"Invalid tags for {component} {cls.name!r}: expected a literal "
-            "list of strings."
+            "list of strings without commas."
         )
     return tags.copy()
 
