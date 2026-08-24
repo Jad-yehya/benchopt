@@ -77,12 +77,10 @@ def _get_class_tags(cls):
 
 def _filter_classes_by_tags(all_classes, tags, name_type):
     """Return classes matching any requested tag."""
-    if tags is None:
+    if not tags:
         return set(all_classes)
     if isinstance(tags, str):
         tags = [tags]
-    if not tags:
-        return set(all_classes)
 
     class_tags = {cls: _get_class_tags(cls) for cls in all_classes}
     available_tags = set().union(*class_tags.values())
