@@ -1349,7 +1349,15 @@ const formatCell = (value) => {
   return gridjs.html(markupToHtml(text));
 };
 
-const escapeLatex = (value) => value.replace(/([&%$#_{}])/g, '\\$1');
+// One pass, so the backslashes and braces we insert are not re-escaped.
+const escapeLatex = (value) => value.replace(
+  /[\\~^&%$#_{}]/g,
+  c => ({
+    '\\': '\\textbackslash{}',
+    '~': '\\textasciitilde{}',
+    '^': '\\textasciicircum{}',
+  }[c] || `\\${c}`)
+);
 
 // Recurse: Grid.js wraps formatted cells in a <span>, and markup can be
 // nested (`**__text__**`).
