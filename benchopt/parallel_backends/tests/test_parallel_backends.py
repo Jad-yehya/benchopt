@@ -1,3 +1,6 @@
+import threading
+import time
+
 import pytest
 
 
@@ -76,6 +79,49 @@ def test_backend_not_installed(backend):
                 ], standalone_mode=False)
 
 
+def test_parallel_run_dispatches_lazily():
+    # Make sure we keep the lazy dispatching when possible (loky).
+    from benchopt.parallel_backends import parallel_run
+
+    n_runs = 100
+    # Hard-block the generator's tail after dispatching a few tasks,
+    # so we can check that the first results are yielded before the generator
+    # is fully consumed.
+    block_after = 50
+    release = threading.Event()
+    pulled = 0
+
+    def kwargs_gen():
+        nonlocal pulled
+        for i in range(n_runs):
+            if i == block_after:
+                release.wait(timeout=60)
+            pulled += 1
+            yield dict(i=i)
+
+    # Make sure every run is dispatched, and keep a small sleep so
+    # main thread retrieval kicks in faster than dispatch hanging.
+    def _run(i):
+        time.sleep(0.005)
+        return (i,)
+    _run.check_call_in_cache = lambda **kwargs: False
+
+    results = parallel_run(
+        benchmark=None, run=_run, run_kwargs_generator=kwargs_gen(),
+        # batch_size=1 avoids joblib auto-batching pulling many tasks at once.
+        config=dict(backend="loky", n_jobs=2, batch_size=1),
+    )
+    try:
+        next(results)
+        # A result came out while the generator tail is still blocked, so at
+        # most the unblocked prefix was pulled.
+        assert pulled <= block_after
+    finally:
+        release.set()
+    # Drain the rest so the workers shut down cleanly.
+    assert len(list(results)) == n_runs - 1
+
+
 @pytest.mark.parametrize("backend", ["submitit", "dask"])
 def test_backend_collect(backend):
     config = f"""
@@ -135,10 +181,13 @@ def test_dask_backend():
             ], standalone_mode=False)
 
     client = distributed.get_client()
-    workers = client._scheduler_identity.get('workers', {})
-    effective_workers = len(workers)
     assert client_name in client.id
-    assert effective_workers == n_workers
+    # Wait for the workers to register, then query the scheduler through the
+    # public `scheduler_info` (the private `_scheduler_identity` snapshot is
+    # not refreshed and reports no worker on recent distributed versions).
+    client.wait_for_workers(n_workers, timeout=30)
+    workers = client.scheduler_info().get('workers', {})
+    assert len(workers) == n_workers
     client.close()
 
     out.check_output("Distributed run with backend: dask", repetition=1)

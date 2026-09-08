@@ -73,18 +73,23 @@ def run_one_resolution(objective, solver, meta, stop_val):
     ], result
 
 
-def run_one_to_cvg(benchmark, objective, solver, meta, timeout, max_runs,
-                   force=False, terminal=None, run_context=None):
+def run_one_to_cvg(benchmark, dataset, objective, solver, repetition, meta,
+                   timeout, max_runs, force=False, terminal=None,
+                   run_context=None):
     """Run all repetitions of the solver for a value of stopping criterion.
 
     Parameters
     ----------
     benchmark : benchopt.Benchmark object
         Object to represent the benchmark.
+    dataset : instance of BaseDataset
+        The dataset to use.
     objective : instance of BaseObjective
         The objective to minimize.
     solver : instance of BaseSolver
         The solver to use.
+    repetition : int
+        Index of the repetition being run.
     meta : dict
         Metadata passed to store in Cost results.
         Contains objective, data, dimension.
@@ -112,9 +117,10 @@ def run_one_to_cvg(benchmark, objective, solver, meta, timeout, max_runs,
     status : 'done' | 'diverged' | 'timeout' | 'max_runs'
         The status on which the solver was stopped.
     """
-    # Re-attach the run context after deserialization (it is excluded from
-    # pickle via __getstate__ so workers receive components without it).
-    run_context.attach(objective, getattr(objective, '_dataset', None), solver)
+    # Re-attach the run context after deserialization (dataset, objective and
+    # solver are pickled independently, so it is not carried across it).
+    run_context.attach(objective, dataset, solver)
+    objective._repetition = repetition
 
     pdb = run_context.pdb if run_context is not None else False
 
@@ -127,6 +133,12 @@ def run_one_to_cvg(benchmark, objective, solver, meta, timeout, max_runs,
     )
 
     with exception_handler(terminal, pdb=pdb) as ctx:
+
+        # `_set_dataset` is a no-op if already called for this dataset
+        # (e.g. for sequential runs).
+        skip, reason = objective._set_dataset(dataset)
+        if skip:
+            return [], run_key, 'skip', reason
 
         skip, reason = solver._set_objective(objective)
         if skip:
@@ -282,7 +294,6 @@ def _run_benchmark(benchmark, solvers=None, forced_solvers=None,
     run_one_to_cvg_cached = benchmark.cache(
         run_one_to_cvg,
         ignore=['force', 'terminal', 'run_context'],
-        collect=collect
     )
 
     def run_one_to_cvg_final(**kwargs):
@@ -298,6 +309,11 @@ def _run_benchmark(benchmark, solvers=None, forced_solvers=None,
             )
             return ([], key, e.status, "")
 
+    # Forward the cache lookup so the parallel dispatch can skip cached runs.
+    run_one_to_cvg_final.check_call_in_cache = (
+        run_one_to_cvg_cached.check_call_in_cache
+    )
+
     total_cvg_kwargs_generator = generate_run_kwargs(
         benchmark, solvers=solvers, forced_solvers=forced_solvers,
         datasets=datasets, objectives=objectives,
@@ -312,10 +328,10 @@ def _run_benchmark(benchmark, solvers=None, forced_solvers=None,
         config=parallel_config, collect=collect
     )
     try:
-        for result, key, status, reason in results_generator:
+        for result, key, status, reason, cached in results_generator:
             run_statistics.extend(result)
             terminal.set(dataset=key[0], objective=key[1], solver=key[2])
-            terminal.show_status(status=status, reason=reason)
+            terminal.show_status(status=status, reason=reason, cached=cached)
             if status == 'interrupted':
                 raise SystemExit(1)
     except KeyboardInterrupt:
@@ -413,6 +429,9 @@ def run_benchmark(benchmark_path, solver_names=None, forced_solvers=(),
     output_file : Path
         Path to the output file where the results have been saved.
     """
+    assert not (collect and no_cache), (
+        "Cannot collect when using `no_cache=True`."
+    )
     benchmark = Benchmark(benchmark_path, no_cache=no_cache)
     if solver_names is None:
         solver_names = []
